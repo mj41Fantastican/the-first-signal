@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-interface CoraConfig {
+interface AgentConfig {
   id: string;
   display_name: string;
   beat: string;
@@ -13,7 +13,17 @@ interface CoraConfig {
   updated_at: string;
 }
 
-export default function CoraControls({ initial }: { initial: CoraConfig }) {
+export default function AgentControls({ agents }: { agents: AgentConfig[] }) {
+  return (
+    <div className="space-y-6">
+      {agents.map((agent) => (
+        <AgentPanel key={agent.id} initial={agent} />
+      ))}
+    </div>
+  );
+}
+
+function AgentPanel({ initial }: { initial: AgentConfig }) {
   const [config, setConfig] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -40,7 +50,7 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
   async function dispatch() {
     setDispatching(true);
     setDispatchResult("");
-    const res = await fetch("/api/cora", { method: "POST" });
+    const res = await fetch(`/api/${config.id}`, { method: "POST" });
     const data = await res.json();
     if (res.ok) {
       setDispatchResult(`Filed: "${data.story.headline}"`);
@@ -51,23 +61,26 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
   }
 
   return (
-    <section className="mb-10 p-6 rounded-lg bg-zinc-900 border border-zinc-800">
+    <section className="mb-4 p-6 rounded-lg bg-zinc-900 border border-zinc-800">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          CORA — Agent Controls
-        </h2>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setConfig({ ...config, active: !config.active })}
-            className={`text-xs font-mono px-3 py-1 rounded ${
-              config.active
-                ? "bg-green-900/50 text-green-300 border border-green-700"
-                : "bg-red-900/50 text-red-300 border border-red-700"
-            }`}
-          >
-            {config.active ? "ACTIVE" : "DEACTIVATED"}
-          </button>
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
+            {config.display_name}
+          </h2>
+          <p className="text-xs text-zinc-500 mt-1">
+            Beat: {config.beat} &middot; Route: POST /api/{config.id}
+          </p>
         </div>
+        <button
+          onClick={() => setConfig({ ...config, active: !config.active })}
+          className={`text-xs font-mono px-3 py-1 rounded ${
+            config.active
+              ? "bg-green-900/50 text-green-300 border border-green-700"
+              : "bg-red-900/50 text-red-300 border border-red-700"
+          }`}
+        >
+          {config.active ? "ACTIVE" : "DEACTIVATED"}
+        </button>
       </div>
 
       <div className="space-y-5">
@@ -97,7 +110,7 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
 
         <div>
           <label className="block text-xs text-zinc-500 uppercase tracking-wider mb-1">
-            Special Instructions (optional — extra guidance for CORA)
+            Special Instructions (optional)
           </label>
           <textarea
             value={config.instructions}
@@ -105,7 +118,7 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
               setConfig({ ...config, instructions: e.target.value })
             }
             rows={3}
-            placeholder="e.g. Focus on Chile mining strikes this week, or mention RWACu token if relevant..."
+            placeholder="Extra guidance for this agent..."
             className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 placeholder:text-zinc-600"
           />
         </div>
@@ -124,7 +137,6 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
         </div>
       </div>
 
-      {/* Dispatch */}
       <div className="mt-6 pt-6 border-t border-zinc-800">
         <div className="flex items-center gap-4">
           <button
@@ -132,11 +144,13 @@ export default function CoraControls({ initial }: { initial: CoraConfig }) {
             disabled={dispatching || !config.active}
             className="px-4 py-2 text-sm font-medium rounded bg-blue-700 hover:bg-blue-600 text-white disabled:opacity-50"
           >
-            {dispatching ? "CORA is writing..." : "Send CORA on Assignment"}
+            {dispatching
+              ? `${config.id.toUpperCase()} is writing...`
+              : `Send ${config.id.toUpperCase()} on Assignment`}
           </button>
           {!config.active && (
             <span className="text-xs text-red-400">
-              Activate CORA first
+              Activate first
             </span>
           )}
         </div>

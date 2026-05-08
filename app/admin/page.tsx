@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import CoraControls from "./cora-controls";
+import AgentControls from "./cora-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +27,7 @@ export default async function AdminDashboard() {
       supabase
         .from("agent_config")
         .select("*")
-        .eq("id", "cora")
-        .single(),
+        .order("id"),
     ]);
 
   const stories = storiesRes.data || [];
@@ -106,9 +105,9 @@ export default async function AdminDashboard() {
           </div>
         </section>
 
-        {/* CORA Controls */}
-        {coraConfigRes.data && (
-          <CoraControls initial={coraConfigRes.data} />
+        {/* Agent Controls */}
+        {coraConfigRes.data && coraConfigRes.data.length > 0 && (
+          <AgentControls agents={coraConfigRes.data} />
         )}
 
         {/* Visitor Breakdown */}

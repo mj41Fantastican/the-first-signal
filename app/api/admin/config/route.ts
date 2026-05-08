@@ -11,8 +11,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("agent_config")
     .select("*")
-    .eq("id", "cora")
-    .single();
+    .order("id");
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });
@@ -23,6 +22,11 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   const body = await request.json();
+  const agentId = body.id;
+
+  if (!agentId) {
+    return Response.json({ error: "Missing agent id" }, { status: 400 });
+  }
 
   const { data, error } = await supabase
     .from("agent_config")
@@ -33,7 +37,7 @@ export async function PUT(request: Request) {
       active: body.active,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", "cora")
+    .eq("id", agentId)
     .select()
     .single();
 
