@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getRevenueStats } from "@/lib/meter";
 import AgentControls from "./cora-controls";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export default async function AdminDashboard() {
         .order("id"),
     ]);
 
+  const revenue = await getRevenueStats();
+
   const stories = storiesRes.data || [];
   const totalViews = viewsRes.count || 0;
   const totalReads = stories.reduce((sum, s) => sum + (s.read_count || 0), 0);
@@ -42,6 +45,7 @@ export default async function AdminDashboard() {
 
   const costPerStory = 0.03;
   const totalCost = stories.length * costPerStory;
+  const netRevenue = revenue.revenue - totalCost;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -78,9 +82,13 @@ export default async function AdminDashboard() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-              <p className="text-xs text-zinc-500">Revenue</p>
-              <p className="text-xl font-mono text-green-400">$0.00</p>
-              <p className="text-xs text-zinc-500 mt-1">Free beta</p>
+              <p className="text-xs text-zinc-500">Metered Revenue</p>
+              <p className={`text-xl font-mono ${revenue.revenue > 0 ? "text-green-400" : "text-zinc-400"}`}>
+                ${revenue.revenue.toFixed(2)}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {revenue.billableCalls} paid calls @ ${revenue.pricePerCall}/ea
+              </p>
             </div>
             <div>
               <p className="text-xs text-zinc-500">API Costs (est.)</p>
@@ -93,14 +101,38 @@ export default async function AdminDashboard() {
             </div>
             <div>
               <p className="text-xs text-zinc-500">Net</p>
-              <p className="text-xl font-mono text-red-400">
-                -${totalCost.toFixed(2)}
+              <p className={`text-xl font-mono ${netRevenue >= 0 ? "text-green-400" : "text-red-400"}`}>
+                {netRevenue >= 0 ? "" : "-"}${Math.abs(netRevenue).toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500">Pricing Tier</p>
-              <p className="text-xl font-mono text-zinc-300">Free</p>
-              <p className="text-xs text-zinc-500 mt-1">During beta</p>
+              <p className="text-xs text-zinc-500">Revenue Cap</p>
+              <p className={`text-xl font-mono ${revenue.capped ? "text-red-400" : "text-zinc-300"}`}>
+                ${revenue.revenue.toFixed(2)} / ${revenue.revenueCap.toFixed(2)}
+              </p>
+              <p className="text-xs text-zinc-500 mt-1">
+                {revenue.capped ? "CAPPED — API paused" : "Active"}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4 pt-4 border-t border-zinc-800">
+            <div>
+              <p className="text-xs text-zinc-500">Total API Calls</p>
+              <p className="text-lg font-mono">{revenue.totalCalls}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Free Calls</p>
+              <p className="text-lg font-mono">{revenue.freeCalls}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Billable Calls</p>
+              <p className="text-lg font-mono">{revenue.billableCalls}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Pricing</p>
+              <p className="text-lg font-mono">
+                1 free, then ${revenue.pricePerCall}/call
+              </p>
             </div>
           </div>
         </section>

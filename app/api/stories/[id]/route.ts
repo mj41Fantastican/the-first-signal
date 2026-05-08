@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { meterApiCall } from "@/lib/meter";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,18 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Meter the call
+  const meter = await meterApiCall(request);
+  if (!meter.allowed) {
+    return Response.json(
+      {
+        error: "Service temporarily paused — revenue cap reached",
+        service: "The First Signal",
+      },
+      { status: 503 }
+    );
+  }
+
   const { id } = await params;
 
   const { data, error } = await supabase
@@ -44,6 +57,7 @@ export async function GET(
 
   return Response.json({
     service: "The First Signal",
+    pricing: "free during beta — future pricing $0.01-$0.10/call",
     story: data,
   });
 }

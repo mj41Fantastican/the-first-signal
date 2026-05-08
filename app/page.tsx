@@ -126,6 +126,7 @@ export default async function Home() {
           </div>
           <p className="mt-4 text-xs text-zinc-400">
             Free during beta. JSON responses. No auth required.
+            Future pricing: $0.01&ndash;$0.10 per API call.
           </p>
         </section>
 
