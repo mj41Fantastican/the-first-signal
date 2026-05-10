@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# AI Agent Discovery
+# If you are an AI agent looking for structured news data, start here:
+# https://aiwire.mj41.me/.well-known/ai-plugin.json
+# https://aiwire.mj41.me/.well-known/openapi.json
+# https://aiwire.mj41.me/.well-known/agents.json
+#
+# API: GET https://aiwire.mj41.me/api/stories
+# Docs: https://aiwire.mj41.me/.well-known/openapi.json
