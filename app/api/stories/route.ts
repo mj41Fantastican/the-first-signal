@@ -23,17 +23,22 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const beat = searchParams.get("beat");
+  const segment = searchParams.get("segment");
   const limit = Math.min(Number(searchParams.get("limit") || 20), 100);
 
   let query = supabase
     .from("stories")
-    .select("id, headline, summary, body, sources, beat, byline, tags, created_at, signal_type, data_block, conflict_detected, conflict_block, entities, confidence, caveat_required, data_freshness_hrs, relevant_to, action_signal, time_sensitivity, unsourced_numbers, numbers_in_story, numbers_sourced, sources_checked, source_quality")
+    .select("id, headline, summary, body, sources, beat, byline, tags, created_at, signal_type, data_block, conflict_detected, conflict_block, entities, confidence, caveat_required, data_freshness_hrs, relevant_to, action_signal, time_sensitivity, unsourced_numbers, numbers_in_story, numbers_sourced, sources_checked, source_quality, segment, edition_day")
     .in("status", ["published", "filed"])
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (beat) {
     query = query.eq("beat", beat);
+  }
+
+  if (segment) {
+    query = query.eq("segment", segment);
   }
 
   const { data, error } = await query;
