@@ -15,6 +15,7 @@ export default async function AdminDashboard() {
       supabase
         .from("stories")
         .select("id, headline, beat, byline, read_count, status, signal_type, confidence, caveat_required, conflict_detected, action_signal, time_sensitivity, unsourced_numbers, created_at")
+        .neq("status", "archived")
         .order("created_at", { ascending: false }),
       supabase
         .from("page_views")
