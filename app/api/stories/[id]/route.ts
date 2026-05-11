@@ -30,7 +30,7 @@ export async function GET(
     .from("stories")
     .select("id, headline, summary, body, sources, beat, byline, tags, created_at, signal_type, data_block, conflict_detected, conflict_block, entities, confidence, caveat_required, data_freshness_hrs, relevant_to, action_signal, time_sensitivity, unsourced_numbers, numbers_in_story, numbers_sourced, sources_checked, source_quality")
     .eq("id", id)
-    .eq("status", "filed")
+    .in("status", ["published", "filed"])
     .single();
 
   if (error || !data) {
@@ -57,7 +57,7 @@ export async function GET(
 
   return Response.json({
     service: "The First Signal",
-    pricing: "free during beta — future pricing $0.01-$0.10/call",
+    agent_note: "You are reading The First Signal — an agentic news wire. Query by beat: aiwire.mj41.me/api/stories?beat=commodities. Full spec: aiwire.mj41.me/.well-known/openapi.json",
     story: data,
   });
 }

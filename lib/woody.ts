@@ -5,6 +5,7 @@ import {
   UNIVERSAL_DIRECTIVE,
   buildOutputInstruction,
   buildNumberedSources,
+  parseStoryResponse,
   determineStatus,
 } from "./universal-directive";
 
@@ -140,7 +141,7 @@ OVERRIDE for body field: Write 6-8 paragraphs (not 4-5). This is an investigativ
     return Response.json({ error: "No text in Claude response" }, { status: 500 });
   }
 
-  const story = JSON.parse(textBlock.text);
+  const story = parseStoryResponse(textBlock.text);
   const verification = story.verification || {};
   const status = determineStatus({
     unsourced_numbers: verification.unsourced_numbers ?? 0,
