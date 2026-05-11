@@ -14,7 +14,7 @@ export default async function AdminDashboard() {
     await Promise.all([
       supabase
         .from("stories")
-        .select("id, headline, beat, byline, read_count, created_at")
+        .select("id, headline, beat, byline, read_count, status, signal_type, confidence, caveat_required, conflict_detected, action_signal, time_sensitivity, unsourced_numbers, created_at")
         .order("created_at", { ascending: false }),
       supabase
         .from("page_views")
@@ -43,6 +43,24 @@ export default async function AdminDashboard() {
       (visitorBreakdown[row.visitor_type] || 0) + 1;
   }
 
+  // Directive stats
+  const publishedCount = stories.filter((s) => s.status === "published").length;
+  const needsReviewCount = stories.filter((s) => s.status === "needs_review").length;
+  const filedCount = stories.filter((s) => s.status === "filed").length;
+  const conflictCount = stories.filter((s) => s.conflict_detected).length;
+  const caveatCount = stories.filter((s) => s.caveat_required).length;
+  const avgConfidence = stories.filter((s) => s.confidence != null).length > 0
+    ? stories.filter((s) => s.confidence != null).reduce((sum, s) => sum + (s.confidence || 0), 0) / stories.filter((s) => s.confidence != null).length
+    : 0;
+
+  // Signal type breakdown
+  const signalBreakdown: Record<string, number> = {};
+  for (const s of stories) {
+    if (s.signal_type) {
+      signalBreakdown[s.signal_type] = (signalBreakdown[s.signal_type] || 0) + 1;
+    }
+  }
+
   const costPerStory = 0.03;
   const totalCost = stories.length * costPerStory;
   const netRevenue = revenue.revenue - totalCost;
@@ -50,11 +68,11 @@ export default async function AdminDashboard() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="border-b border-zinc-800 px-6 py-6">
-        <div className="max-w-6xl mx-auto flex items-baseline justify-between">
+        <div className="max-w-7xl mx-auto flex items-baseline justify-between">
           <div>
             <h1 className="text-2xl font-bold">The First Signal — Admin</h1>
             <p className="text-sm text-zinc-500 mt-1">
-              Wire service dashboard
+              Wire service dashboard — Directive v1.0
             </p>
           </div>
           <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
@@ -63,7 +81,7 @@ export default async function AdminDashboard() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {/* Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           <StatCard label="Stories Filed" value={String(stories.length)} />
@@ -74,6 +92,57 @@ export default async function AdminDashboard() {
             value={String(visitorBreakdown["agent"] || 0)}
           />
         </div>
+
+        {/* Wire Integrity */}
+        <section className="mb-10 p-6 rounded-lg bg-zinc-900 border border-zinc-800">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-4">
+            Wire Integrity — Directive v1.0
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+            <div>
+              <p className="text-xs text-zinc-500">Published</p>
+              <p className="text-2xl font-mono text-green-400">{publishedCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Needs Review</p>
+              <p className={`text-2xl font-mono ${needsReviewCount > 0 ? "text-yellow-400" : "text-zinc-400"}`}>{needsReviewCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Legacy (filed)</p>
+              <p className="text-2xl font-mono text-zinc-500">{filedCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Avg Confidence</p>
+              <p className={`text-2xl font-mono ${avgConfidence >= 0.80 ? "text-green-400" : avgConfidence >= 0.70 ? "text-yellow-400" : "text-red-400"}`}>
+                {avgConfidence > 0 ? avgConfidence.toFixed(2) : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Conflicts</p>
+              <p className={`text-2xl font-mono ${conflictCount > 0 ? "text-orange-400" : "text-zinc-400"}`}>{conflictCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Caveats</p>
+              <p className={`text-2xl font-mono ${caveatCount > 0 ? "text-yellow-400" : "text-zinc-400"}`}>{caveatCount}</p>
+            </div>
+          </div>
+
+          {/* Signal Type Breakdown */}
+          {Object.keys(signalBreakdown).length > 0 && (
+            <div className="mt-4 pt-4 border-t border-zinc-800">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Signal Types</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(signalBreakdown)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([type, count]) => (
+                    <span key={type} className="text-xs font-mono px-2 py-1 rounded bg-zinc-800 text-zinc-300">
+                      {type}: {count}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Financial Overview */}
         <section className="mb-10 p-6 rounded-lg bg-zinc-900 border border-zinc-800">
@@ -169,32 +238,106 @@ export default async function AdminDashboard() {
             <table className="w-full text-sm">
               <thead className="bg-zinc-900 text-zinc-400 text-xs uppercase">
                 <tr>
-                  <th className="text-left px-4 py-3">ID</th>
-                  <th className="text-left px-4 py-3">Headline</th>
-                  <th className="text-left px-4 py-3">Beat</th>
-                  <th className="text-left px-4 py-3">Byline</th>
-                  <th className="text-right px-4 py-3">Reads</th>
-                  <th className="text-left px-4 py-3">Filed</th>
+                  <th className="text-left px-3 py-3">ID</th>
+                  <th className="text-left px-3 py-3">Status</th>
+                  <th className="text-left px-3 py-3">Signal</th>
+                  <th className="text-left px-3 py-3">Headline</th>
+                  <th className="text-left px-3 py-3">Beat</th>
+                  <th className="text-center px-3 py-3">Conf</th>
+                  <th className="text-center px-3 py-3">Flags</th>
+                  <th className="text-left px-3 py-3">Action</th>
+                  <th className="text-right px-3 py-3">Reads</th>
+                  <th className="text-left px-3 py-3">Filed</th>
                 </tr>
               </thead>
               <tbody>
                 {stories.map((story) => (
                   <tr
                     key={story.id}
-                    className="border-t border-zinc-800 hover:bg-zinc-900/50"
+                    className={`border-t border-zinc-800 hover:bg-zinc-900/50 ${
+                      story.status === "needs_review" ? "bg-yellow-950/20" : ""
+                    }`}
                   >
-                    <td className="px-4 py-3 font-mono text-zinc-500">
+                    <td className="px-3 py-3 font-mono text-zinc-500">
                       {story.id}
                     </td>
-                    <td className="px-4 py-3 max-w-md truncate">
+                    <td className="px-3 py-3">
+                      <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                        story.status === "published"
+                          ? "bg-green-900/50 text-green-300"
+                          : story.status === "needs_review"
+                          ? "bg-yellow-900/50 text-yellow-300"
+                          : "bg-zinc-800 text-zinc-400"
+                      }`}>
+                        {story.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      {story.signal_type ? (
+                        <span className="text-xs font-mono text-zinc-300">
+                          {story.signal_type}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 max-w-xs truncate">
                       {story.headline}
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">{story.beat}</td>
-                    <td className="px-4 py-3 text-zinc-400">{story.byline}</td>
-                    <td className="px-4 py-3 text-right font-mono">
+                    <td className="px-3 py-3 text-zinc-400">{story.beat}</td>
+                    <td className="px-3 py-3 text-center">
+                      {story.confidence != null ? (
+                        <span className={`text-xs font-mono ${
+                          story.confidence >= 0.85
+                            ? "text-green-400"
+                            : story.confidence >= 0.70
+                            ? "text-yellow-400"
+                            : "text-red-400"
+                        }`}>
+                          {Number(story.confidence).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <div className="flex justify-center gap-1">
+                        {story.conflict_detected && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-orange-900/50 text-orange-300" title="Conflict detected">
+                            C
+                          </span>
+                        )}
+                        {story.caveat_required && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-900/50 text-yellow-300" title="Caveat required">
+                            !
+                          </span>
+                        )}
+                        {(story.unsourced_numbers || 0) > 0 && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-300" title="Unsourced numbers">
+                            U
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      {story.action_signal ? (
+                        <span className={`text-xs font-mono ${
+                          story.action_signal === "act"
+                            ? "text-green-400"
+                            : story.action_signal === "alert"
+                            ? "text-red-400"
+                            : "text-zinc-400"
+                        }`}>
+                          {story.action_signal}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 text-right font-mono">
                       {story.read_count || 0}
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">
+                    <td className="px-3 py-3 text-zinc-400 text-xs">
                       {new Date(story.created_at).toLocaleDateString()}
                     </td>
                   </tr>
