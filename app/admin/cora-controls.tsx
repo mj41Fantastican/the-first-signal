@@ -127,7 +127,7 @@ function WoodyQueuePanel() {
     try {
       const res = await fetch("/api/requests");
       const data = await res.json();
-      const pending = data.queue?.filter((r: { status: string }) => r.status === "pending") || [];
+      const pending = (data.requests || []).filter((r: { status: string }) => r.status === "pending");
       setQueue({ pending: pending.length, topics: pending.slice(0, 5).map((r: { topic: string; fast_tracked: boolean }) => `${r.fast_tracked ? "[PAID] " : ""}${r.topic}`) });
     } catch {
       setQueue({ pending: 0, topics: [] });
@@ -153,7 +153,7 @@ function WoodyQueuePanel() {
     setDispatching(false);
   }
 
-  async function submitRequest() {
+  async function submitRequest(andDispatch = false) {
     if (!topic.trim()) return;
     setSubmitting(true);
     setSubmitResult("");
@@ -161,13 +161,34 @@ function WoodyQueuePanel() {
       const res = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: topic.trim(), description: description.trim(), submitted_by: "admin" }),
+        body: JSON.stringify({ topic: topic.trim(), description: description.trim() || topic.trim(), submitted_by: "admin" }),
       });
       const data = await res.json();
       if (res.ok) {
-        setSubmitResult(`Submitted: "${topic.trim()}"`);
-        setTopic("");
-        setDescription("");
+        if (andDispatch) {
+          setSubmitResult(`Submitted: "${topic.trim()}" — dispatching Woody...`);
+          setTopic("");
+          setDescription("");
+          // Dispatch Woody immediately after submitting
+          setDispatching(true);
+          try {
+            const woodyRes = await fetch("/api/woody", { method: "POST" });
+            const woodyData = await woodyRes.json();
+            if (woodyRes.ok) {
+              setDispatchResult(`Filed: "${woodyData.story?.headline || woodyData.request_topic}" (${woodyData.seven_one_rule})`);
+              setSubmitResult(`Submitted & dispatched: "${data.request?.topic || topic.trim()}"`);
+            } else {
+              setDispatchResult(`Error: ${woodyData.error}`);
+            }
+          } catch {
+            setDispatchResult("Error: network failure");
+          }
+          setDispatching(false);
+        } else {
+          setSubmitResult(`Submitted: "${topic.trim()}"`);
+          setTopic("");
+          setDescription("");
+        }
         loadQueue();
       } else {
         setSubmitResult(`Error: ${data.error}`);
@@ -250,13 +271,20 @@ function WoodyQueuePanel() {
             rows={2}
             className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 placeholder:text-zinc-600"
           />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={submitRequest}
-              disabled={submitting || !topic.trim()}
+              onClick={() => submitRequest(false)}
+              disabled={submitting || dispatching || !topic.trim()}
               className="px-4 py-2 text-sm font-medium rounded bg-amber-800 hover:bg-amber-700 text-amber-100 disabled:opacity-50"
             >
-              {submitting ? "Submitting..." : "Submit to Queue"}
+              {submitting && !dispatching ? "Submitting..." : "Submit to Queue"}
+            </button>
+            <button
+              onClick={() => submitRequest(true)}
+              disabled={submitting || dispatching || !topic.trim()}
+              className="px-4 py-2 text-sm font-bold rounded bg-green-700 hover:bg-green-600 text-white disabled:opacity-50"
+            >
+              {dispatching ? "Woody is writing..." : "Submit & Run Now"}
             </button>
             {submitResult && (
               <span className="text-xs text-zinc-400">{submitResult}</span>
