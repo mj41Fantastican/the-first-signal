@@ -1,0 +1,19 @@
+-- Run this in Supabase SQL Editor
+-- Adds Universal Directive v1.0 columns to the stories table
+
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS signal_type TEXT;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS data_block TEXT;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS conflict_detected BOOLEAN DEFAULT FALSE;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS conflict_block TEXT;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS entities TEXT[] DEFAULT '{}';
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS confidence NUMERIC;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS caveat_required BOOLEAN DEFAULT FALSE;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS data_freshness_hrs NUMERIC;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS unsourced_numbers INTEGER DEFAULT 0;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS numbers_in_story INTEGER DEFAULT 0;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS numbers_sourced INTEGER DEFAULT 0;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS sources_checked INTEGER DEFAULT 0;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS source_quality TEXT;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS relevant_to TEXT[] DEFAULT '{}';
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS action_signal TEXT;
+ALTER TABLE stories ADD COLUMN IF NOT EXISTS time_sensitivity TEXT;

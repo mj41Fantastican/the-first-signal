@@ -28,7 +28,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("stories")
-    .select("id, headline, summary, body, sources, beat, byline, tags, created_at")
+    .select("id, headline, summary, body, sources, beat, byline, tags, created_at, signal_type, data_block, conflict_detected, conflict_block, entities, confidence, caveat_required, data_freshness_hrs, relevant_to, action_signal, time_sensitivity, unsourced_numbers, numbers_in_story, numbers_sourced, sources_checked, source_quality")
     .eq("id", id)
     .eq("status", "filed")
     .single();

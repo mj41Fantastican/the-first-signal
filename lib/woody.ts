@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { tavily } from "@tavily/core";
 import { createClient } from "@supabase/supabase-js";
+import {
+  UNIVERSAL_DIRECTIVE,
+  buildOutputInstruction,
+  buildNumberedSources,
+  determineStatus,
+} from "./universal-directive";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY! });
@@ -65,7 +71,7 @@ export async function dispatchWoody() {
     .update({ status: "in_production" })
     .eq("id", request.id);
 
-  // Research the topic
+  // Research the topic — deeper than regular reporters (7 results per query)
   const searchQueries = [
     `${request.topic} investigation deep dive 2026`,
     `${request.topic} controversy facts analysis`,
@@ -77,52 +83,54 @@ export async function dispatchWoody() {
   );
 
   const allResults = [...result1.results, ...result2.results, ...result3.results];
-  const researchBrief = allResults
-    .map((r) => `[${r.title}] ${r.content} (Source: ${r.url})`)
-    .join("\n\n");
+  const numberedSources = buildNumberedSources(allResults);
   const uniqueSources = Array.from(new Set(allResults.map((r) => r.url)));
 
   // Build the fast-track disclosure
   const fastTrackDisclosure = request.fast_tracked
-    ? `\n\nIMPORTANT DISCLOSURE TO INCLUDE AT THE TOP OF YOUR STORY:\n"EDITOR'S NOTE: This topic was fast-tracked for investigation by ${request.submitted_by}. Fast-tracking prioritizes a topic for investigation — it does not influence the reporting. All First Signal exposés follow independent journalistic standards."\n`
+    ? `\n\nFAST-TRACK DISCLOSURE (include at the top of your body as the first paragraph):\n"EDITOR'S NOTE: This topic was fast-tracked for investigation by ${request.submitted_by}. Fast-tracking prioritizes a topic for investigation — it does not influence the reporting. All First Signal exposés follow independent journalistic standards."\n`
     : "";
 
   const tone = config.tone || "investigative long-form journalism";
   const extraInstructions = config.instructions || "";
+  const outputInstruction = buildOutputInstruction("investigative", "WOODY BERNSTEIN, Investigative Correspondent");
 
   // Write the expose
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 4000,
+    max_tokens: 5000,
     messages: [
       {
         role: "user",
-        content: `You are WOODY BERNSTEIN, Investigative Correspondent for The First Signal. You are writing a deep-dive exposé on the following topic that was submitted by a reader/agent:
+        content: `${UNIVERSAL_DIRECTIVE}
+
+---
+
+You are WOODY BERNSTEIN, Investigative Correspondent for The First Signal.
+BEAT: investigative
+TONE: ${tone}
+
+You are writing a deep-dive exposé on a topic submitted by a reader/agent.
 
 TOPIC: ${request.topic}
 DESCRIPTION: ${request.description}
 SUBMITTED BY: ${request.submitted_by}
 ${fastTrackDisclosure}
-RESEARCH:
-${researchBrief}
-
 ${extraInstructions ? `EDITOR INSTRUCTIONS: ${extraInstructions}\n` : ""}
-Respond in this exact JSON format (no markdown fences, just raw JSON):
-{
-  "headline": "A compelling investigative headline",
-  "summary": "Exactly 2 sentences summarizing the key findings.",
-  "body": "A 6-8 paragraph investigative exposé. This is long-form journalism — be thorough, cite sources, include data points, and follow the standards of American newspaper investigative reporting. Each paragraph should be separated by two newlines.${request.fast_tracked ? ' Begin with the fast-track disclosure note as the first paragraph.' : ''}",
-  "tags": ["investigative", "expose", "tag3", "tag4"]
-}
 
-Requirements:
-- This is a DEEP DIVE, not a summary. Write 6-8 substantial paragraphs.
-- Follow journalistic standards of American newspapers — fair, balanced, evidence-based.
-- Include specific data points from the research.
-- Name sources where possible.
-- ${tone}
+SPECIAL WOODY RULES (in addition to universal directive):
+- This is a DEEP DIVE. Write 6-8 substantial paragraphs in the body, not 4-5.
+- Follow investigative journalism standards — thorough, fair, evidence-based, unflinching.
 - If the topic turns out to be unsubstantiated, report THAT finding honestly.
-- Write only valid JSON.`,
+- You never produce puff pieces regardless of payment.
+- Name sources where possible. Cite data aggressively.
+
+NUMBERED RESEARCH SOURCES (use [src:N] tags to cite these):
+${numberedSources}
+
+${outputInstruction}
+
+OVERRIDE for body field: Write 6-8 paragraphs (not 4-5). This is an investigative exposé.`,
       },
     ],
   });
@@ -133,6 +141,11 @@ Requirements:
   }
 
   const story = JSON.parse(textBlock.text);
+  const verification = story.verification || {};
+  const status = determineStatus({
+    unsourced_numbers: verification.unsourced_numbers ?? 0,
+    confidence: verification.confidence ?? 0.70,
+  });
 
   // Build tags
   const tags = [
@@ -151,9 +164,25 @@ Requirements:
       body: story.body,
       sources: uniqueSources,
       beat: "investigative",
-      status: "filed",
+      status,
       byline: "WOODY BERNSTEIN, Investigative Correspondent",
       tags,
+      signal_type: story.signal_type || null,
+      data_block: story.data_block || null,
+      conflict_detected: story.conflict_detected || false,
+      conflict_block: story.conflict_block || null,
+      entities: story.entities || [],
+      confidence: verification.confidence ?? null,
+      caveat_required: verification.caveat_required || false,
+      data_freshness_hrs: story.data_freshness_hrs ?? null,
+      unsourced_numbers: verification.unsourced_numbers ?? 0,
+      numbers_in_story: verification.numbers_in_story ?? 0,
+      numbers_sourced: verification.numbers_sourced ?? 0,
+      sources_checked: verification.sources_checked ?? 0,
+      source_quality: verification.source_quality || null,
+      relevant_to: story.relevant_to || [],
+      action_signal: story.action_signal || null,
+      time_sensitivity: story.time_sensitivity || null,
     })
     .select()
     .single();
@@ -173,13 +202,15 @@ Requirements:
     request_topic: request.topic,
     fast_tracked: request.fast_tracked,
     seven_one_rule: mustPickFree ? "FREE STORY (7:1 rule triggered)" : `${consecutivePaid}/${MAX_CONSECUTIVE_PAID} consecutive paid`,
+    status,
+    signal_type: story.signal_type,
+    confidence: verification.confidence,
     story: data,
   });
 }
 
 async function pickNextRequest(mustPickFree: boolean): Promise<StoryRequest | null> {
   if (mustPickFree) {
-    // Must pick a free (non-fast-tracked) request
     const { data } = await supabase
       .from("story_requests")
       .select("*")
@@ -191,7 +222,6 @@ async function pickNextRequest(mustPickFree: boolean): Promise<StoryRequest | nu
     return data;
   }
 
-  // Paid stories take priority, then oldest free
   const { data: paidRequest } = await supabase
     .from("story_requests")
     .select("*")
@@ -203,7 +233,6 @@ async function pickNextRequest(mustPickFree: boolean): Promise<StoryRequest | nu
 
   if (paidRequest) return paidRequest;
 
-  // No paid requests — pick oldest free
   const { data: freeRequest } = await supabase
     .from("story_requests")
     .select("*")

@@ -1,6 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { tavily } from "@tavily/core";
 import { createClient } from "@supabase/supabase-js";
+import {
+  UNIVERSAL_DIRECTIVE,
+  buildOutputInstruction,
+  buildNumberedSources,
+  determineStatus,
+} from "./universal-directive";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY! });
@@ -64,49 +70,41 @@ export async function dispatchReporter(agentId: string) {
     ...result3.results,
   ];
 
-  const researchBrief = allResults
-    .map((r) => `[${r.title}] ${r.content} (Source: ${r.url})`)
-    .join("\n\n");
-
+  const numberedSources = buildNumberedSources(allResults);
   const sourceUrls = allResults.map((r) => r.url);
   const uniqueSources = Array.from(new Set(sourceUrls));
 
-  // Build prompt
+  // Build prompt sections
   const avoidSection = recentHeadlines
     ? `\n\nRECENT STORIES ALREADY FILED (DO NOT repeat these angles, find a fresh angle):\n${recentHeadlines}\n`
     : "";
 
   const customSection = extraInstructions
-    ? `\n\nADDITIONAL EDITOR INSTRUCTIONS:\n${extraInstructions}\n`
+    ? `\n\nBEAT-SPECIFIC INSTRUCTIONS:\n${extraInstructions}\n`
     : "";
+
+  const outputInstruction = buildOutputInstruction(beat, byline);
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
+    max_tokens: 3000,
     messages: [
       {
         role: "user",
-        content: `You are ${byline} for The First Signal, an agentic news organization. Write a structured news story about ${beat} based on this research:
+        content: `${UNIVERSAL_DIRECTIVE}
 
-${researchBrief}
+---
+
+You are ${byline} for The First Signal.
+BEAT: ${beat}
+TONE: ${tone}
+FOCUS AREAS: ${focus}
 ${avoidSection}${customSection}
-Respond in this exact JSON format (no markdown fences, just raw JSON):
-{
-  "headline": "A compelling, specific news headline about ${beat}",
-  "summary": "Exactly 2 sentences summarizing the key news.",
-  "body": "A 4-5 paragraph news story. Each paragraph should be separated by two newlines.",
-  "tags": ["tag1", "tag2", "tag3"]
-}
 
-Requirements:
-- The headline must be specific and newsworthy, not generic
-- Find a FRESH angle that differs from any recent stories listed above
-- The summary must be exactly 2 sentences
-- The body must be 4-5 paragraphs of ${tone}
-- Focus areas: ${focus}
-- Include specific data points from the research
-- Include 3-5 relevant tags as an array of lowercase strings
-- Write only valid JSON`,
+NUMBERED RESEARCH SOURCES (use [src:N] tags to cite these):
+${numberedSources}
+
+${outputInstruction}`,
       },
     ],
   });
@@ -120,6 +118,11 @@ Requirements:
   }
 
   const story = JSON.parse(textBlock.text);
+  const verification = story.verification || {};
+  const status = determineStatus({
+    unsourced_numbers: verification.unsourced_numbers ?? 0,
+    confidence: verification.confidence ?? 0.70,
+  });
 
   // Save to Supabase
   const { data, error } = await supabase
@@ -130,9 +133,25 @@ Requirements:
       body: story.body,
       sources: uniqueSources,
       beat,
-      status: "filed",
+      status,
       byline,
-      tags: story.tags,
+      tags: story.tags || [],
+      signal_type: story.signal_type || null,
+      data_block: story.data_block || null,
+      conflict_detected: story.conflict_detected || false,
+      conflict_block: story.conflict_block || null,
+      entities: story.entities || [],
+      confidence: verification.confidence ?? null,
+      caveat_required: verification.caveat_required || false,
+      data_freshness_hrs: story.data_freshness_hrs ?? null,
+      unsourced_numbers: verification.unsourced_numbers ?? 0,
+      numbers_in_story: verification.numbers_in_story ?? 0,
+      numbers_sourced: verification.numbers_sourced ?? 0,
+      sources_checked: verification.sources_checked ?? 0,
+      source_quality: verification.source_quality || null,
+      relevant_to: story.relevant_to || [],
+      action_signal: story.action_signal || null,
+      time_sensitivity: story.time_sensitivity || null,
     })
     .select()
     .single();
@@ -146,6 +165,10 @@ Requirements:
 
   return Response.json({
     message: "Story filed successfully",
+    status,
+    signal_type: story.signal_type,
+    confidence: verification.confidence,
+    caveat_required: verification.caveat_required,
     story: data,
   });
 }
