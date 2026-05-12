@@ -15,7 +15,7 @@ interface AgentConfig {
 
 const BEAT_REPORTERS = [
   "algo", "anymal", "bambi", "becky", "blaise", "cora",
-  "dalton", "finn", "mahesh", "richard", "riplo", "roofus", "sammy",
+  "dalton", "finn", "mahesh", "rex", "richard", "riplo", "roofus", "sammy",
 ];
 
 export default function AgentControls({ agents }: { agents: AgentConfig[] }) {

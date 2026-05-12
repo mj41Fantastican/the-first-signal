@@ -1,4 +1,5 @@
 import { dispatchReporter } from "@/lib/reporter";
+import { dispatchRex } from "@/lib/rex";
 import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,21 @@ export async function GET(request: Request) {
     }
   }
 
+  // Dispatch Rex (custom dispatch function)
+  try {
+    const response = await dispatchRex();
+    const data = await response.json();
+    if (data.story) {
+      results.push({ agent: "rex", status: data.status || "filed", headline: data.story.headline });
+    } else {
+      results.push({ agent: "rex", status: "error" });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    results.push({ agent: "rex", status: `error: ${message}` });
+  }
+
+  const totalAgents = ALL_REPORTERS.length + 1; // +1 for Rex
   const successCount = results.filter((r) => r.status !== "error" && !r.status.startsWith("error")).length;
 
   // Log the cron run
@@ -56,7 +72,7 @@ export async function GET(request: Request) {
   });
 
   return Response.json({
-    message: `Cron dispatch complete: ${successCount}/${ALL_REPORTERS.length} reporters filed`,
+    message: `Cron dispatch complete: ${successCount}/${totalAgents} reporters filed`,
     timestamp: new Date().toISOString(),
     results,
   });
