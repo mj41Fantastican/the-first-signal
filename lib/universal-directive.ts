@@ -64,7 +64,7 @@ export function buildOutputInstruction(beat: string, byline: string) {
 {
   "signal_type": "PRICE_MOVEMENT",
   "headline": "string",
-  "data_block": "string with [src:N] tags",
+  "data_block": "string with [src:N] tags OR structured object (e.g. for pricing reports)",
   "conflict_detected": false,
   "conflict_block": null,
   "summary": "string — exactly 2 sentences",
@@ -93,6 +93,7 @@ FIELD RULES:
 - time_sensitivity: one of "immediate", "24h", "7d", "low"
 - data_freshness_hrs: float — hours since most recent source
 - unsourced_numbers MUST be 0 for publication
+- data_block: a string with [src:N] tags for general stories, OR a structured object keyed by item for pricing reports
 - entities: use proper prefix tags ($TICKER, EXCHANGE:, etc.)
 - RESPOND WITH ONLY THE JSON OBJECT`;
 }
@@ -108,6 +109,7 @@ export function buildNumberedSources(results: { title: string; content: string; 
 
 /**
  * Parse the model response — strip markdown fences if present, then JSON.parse.
+ * Also normalizes data_block: if it's a JSON string, parse it into an object.
  */
 export function parseStoryResponse(text: string) {
   let cleaned = text.trim();
@@ -115,7 +117,21 @@ export function parseStoryResponse(text: string) {
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
   }
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+
+  // Normalize data_block: if the model returned it as a JSON string, parse it
+  if (typeof parsed.data_block === "string") {
+    try {
+      const maybeObj = JSON.parse(parsed.data_block);
+      if (typeof maybeObj === "object" && maybeObj !== null) {
+        parsed.data_block = maybeObj;
+      }
+    } catch {
+      // It's a plain string (e.g. "Gold rose 2.1% [src:1]") — keep as-is
+    }
+  }
+
+  return parsed;
 }
 
 /**
