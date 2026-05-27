@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { getRevenueStats } from "@/lib/meter";
+import { verifyAdminToken } from "@/lib/admin-auth";
 import AgentControls from "./cora-controls";
+import LoginGate from "./login-gate";
+import LogoutButton from "./logout-button";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +14,12 @@ const supabase = createClient(
 );
 
 export default async function AdminDashboard() {
+  // Check auth
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_token")?.value;
+  if (!verifyAdminToken(token)) {
+    return <LoginGate>{null}</LoginGate>;
+  }
   const [storiesRes, viewsRes, viewsByTypeRes, recentViewsRes, coraConfigRes] =
     await Promise.all([
       supabase
@@ -76,9 +86,12 @@ export default async function AdminDashboard() {
               Wire service dashboard — Directive v1.0
             </p>
           </div>
-          <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-            View public site
-          </a>
+          <div className="flex items-center gap-4">
+            <a href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
+              View public site
+            </a>
+            <LogoutButton />
+          </div>
         </div>
       </header>
 
