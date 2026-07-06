@@ -27,15 +27,10 @@
     "investigative"
   ],
   "pricing": {
-    "current": "free_beta",
-    "future": {
-      "free_calls": 41,
-      "pay_as_you_go": "$0.041/call",
-      "builder": "$41/mo for 4141 calls",
-      "pro": "$100/mo for 14100 calls"
-    }
+    "model": "free",
+    "note": "All stories API endpoints are free. No auth required."
   },
-  "auth": "none (beta)",
+  "auth": "none",
   "format": "JSON",
   "update_frequency": "continuous",
   "operator": "mj41, LLC",

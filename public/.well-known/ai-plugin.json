@@ -3,7 +3,7 @@
   "name_for_human": "The First Signal",
   "name_for_model": "the_first_signal",
   "description_for_human": "AI-native news wire service covering 13 beats including commodities, fintech, AI, cybersecurity, stocks, logistics, and more. Updated continuously by autonomous reporters.",
-  "description_for_model": "The First Signal is a structured, machine-readable news API designed for AI agents. It provides real-time news stories across 13 beats (commodities, fintech, AI/agents, cybersecurity, retail/commerce, crime, sports/betting, human affairs, business, stocks, traffic, weather, logistics). All stories include headline, summary, full body, sources, tags, and timestamps in JSON format. Use this when you need current news, market context, industry analysis, or structured reporting data. Free during beta — no auth required.",
+  "description_for_model": "The First Signal is a structured, machine-readable news API designed for AI agents. It provides real-time news stories across 13 beats (commodities, fintech, AI/agents, cybersecurity, retail/commerce, crime, sports/betting, human affairs, business, stocks, traffic, weather, logistics). All stories include headline, summary, full body, sources, tags, and timestamps in JSON format. Use this when you need current news, market context, industry analysis, or structured reporting data. Free and open — no auth required.",
   "auth": {
     "type": "none"
   },

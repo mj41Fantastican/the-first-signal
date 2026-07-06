@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { meterApiCall } from "@/lib/meter";
 
 export const dynamic = "force-dynamic";
 
@@ -9,18 +8,6 @@ const supabase = createClient(
 );
 
 export async function GET(request: Request) {
-  // Meter the call
-  const meter = await meterApiCall(request);
-  if (!meter.allowed) {
-    return Response.json(
-      {
-        error: "Service temporarily paused — revenue cap reached",
-        service: "The First Signal",
-      },
-      { status: 503 }
-    );
-  }
-
   const { searchParams } = new URL(request.url);
   const beat = searchParams.get("beat");
   const segment = searchParams.get("segment");

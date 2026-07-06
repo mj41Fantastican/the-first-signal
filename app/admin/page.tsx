@@ -74,7 +74,7 @@ export default async function AdminDashboard() {
 
   const costPerStory = 0.03;
   const totalCost = stories.length * costPerStory;
-  const netRevenue = revenue.revenue - totalCost;
+  const netRevenue = revenue.stripeRevenue - totalCost;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -165,12 +165,15 @@ export default async function AdminDashboard() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
-              <p className="text-xs text-zinc-500">Metered Revenue</p>
-              <p className={`text-xl font-mono ${revenue.revenue > 0 ? "text-green-400" : "text-zinc-400"}`}>
-                ${revenue.revenue.toFixed(2)}
+              <p className="text-xs text-zinc-500">Stripe Revenue</p>
+              <p className={`text-xl font-mono ${revenue.stripeRevenue > 0 ? "text-green-400" : "text-zinc-400"}`}>
+                ${revenue.stripeRevenue.toFixed(2)}
               </p>
               <p className="text-xs text-zinc-500 mt-1">
                 {revenue.billableCalls} paid calls @ ${revenue.pricePerCall}/ea
+              </p>
+              <p className="text-xs text-zinc-500">
+                {revenue.apiKeyCount} API keys issued
               </p>
             </div>
             <div>
@@ -214,7 +217,7 @@ export default async function AdminDashboard() {
             <div>
               <p className="text-xs text-zinc-500">Pricing</p>
               <p className="text-lg font-mono">
-                1 free, then ${revenue.pricePerCall}/call
+                1 free, then ${revenue.pricePerCall}/call (Stripe)
               </p>
             </div>
           </div>
